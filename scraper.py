@@ -44,7 +44,7 @@ monster_type_lists = [abberations, animals, constructs, dragons, fey, humanoids,
                        magical_beasts, monstrous_humanoids, oozes, outsiders,
                        plants, undead, vermin]
 
-print
+
 #  Get all monster  pages individually by type
 
 for index, type_url in enumerate(monster_type_urls):
@@ -52,18 +52,56 @@ for index, type_url in enumerate(monster_type_urls):
     response.raise_for_status()
     soup = BeautifulSoup(response.text, "lxml")
     print("Scraping type page:", type_url)
+
     # Extract monster entries from the type page
     for a in soup.select("a"):
         href = a.get("href", "")
         text = a.text.strip()
 
         # Only keep links to actual monster pages
-        if href.__contains__("/bestiary/monster-listings/"): 
+        if href.__contains__("/bestiary/monster-listings/"+type_url.split("/")[-2]): 
             monster_type_lists[index].append({
             "name": text,
-            "url": href
+            "url": href,
+            "type": type_url.split("/")[-2]  # Extract type from URL    
         })
-print(dragons)
+
+
+
+
+for monster_list in monster_type_lists: #O(1) 13 times
+
+    
+
+    for monster in monster_list:
+
+        print("Scraping monster:", monster["name"], "from", monster["url"])
+
+        response = requests.get(monster["url"])
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "lxml")
+
+        # Extract CR from the monster page
+        cr = None
+
+        for tag in soup.find_all(["b", "strong", "p", "span", "td"]):
+
+            txt = tag.get_text().strip()
+            if txt.startswith("CR "):
+                cr = txt.replace("CR", "")[:4].strip()
+                break
+
+        if not cr:
+            cr = "UNKNOWN"
+
+        monster["cr"] = cr
+        
+
+# Print summary of results
+print("\nDONE. Summary of monsters scraped:")
+
+
+
 
 
 print("Aberrations found:", len(abberations))
@@ -79,4 +117,19 @@ print("Outsiders found:", len(outsiders))
 print("Plants found:", len(plants))
 print("Undead found:", len(undead))
 print("Vermin found:", len(vermin))
-#print(abberations)
+
+
+
+
+
+# Save results to CSV
+with open("pathfinder_monsters.csv", "w", newline='', encoding='utf-8') as csvfile:
+    fieldnames = ["name", "url", "type", "cr"]
+    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+    writer.writeheader()
+    for monster_list in monster_type_lists:
+        for monster in monster_list:
+            writer.writerow(monster)
+
+print("\nData saved to pathfinder_monsters.csv")
