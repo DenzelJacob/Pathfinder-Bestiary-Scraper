@@ -1,8 +1,11 @@
 import pandas as pd
 import numpy as np
+import time
 import gspread
 from google.oauth2.service_account import Credentials
 from gspread_dataframe import set_with_dataframe
+
+start_time = time.perf_counter()
 
 
 
@@ -67,6 +70,8 @@ monster_types = grouped_data.groups.keys()
 
 
 
+
+
 """
 # Authenticate and connect to Google Sheets
 """
@@ -99,7 +104,7 @@ for monster_type in monster_types:
     worksheet.clear()
     
     # Set headers
-    headers = ["Name", "CR", "URL"]
+    headers = ["name", "url", "type", "cr" ]
     worksheet.append_row(headers)
     
     # Append data
@@ -125,5 +130,8 @@ for monster_type in monster_types:
     
     print(f"Updated worksheet for {monster_type} with {len(type_data)} entries.")
 
+end_time = time.perf_counter()
 
+
+print(f"Time taken: {(end_time - start_time) / 60} minutes")
   
