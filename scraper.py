@@ -3,6 +3,8 @@ from bs4 import BeautifulSoup
 import time
 import csv
 
+start_time = time.perf_counter()
+
 BASE = "https://www.d20pfsrd.com"
 
 ABBERATIONS_URL = BASE + "/bestiary/monster-listings/aberrations/"
@@ -18,10 +20,11 @@ OUTSIDERS_URL = BASE + "/bestiary/monster-listings/outsiders/"
 PLANTS_URL = BASE + "/bestiary/monster-listings/plants/"
 UNDEAD_URL = BASE + "/bestiary/monster-listings/undead/"
 VERMIN_URL = BASE + "/bestiary/monster-listings/vermin/"
+NPC_URL = BASE + "/bestiary/npc-s/"
 
 monster_type_urls = [ABBERATIONS_URL, ANIMAL_URL, CONSTRUCTS_URL, DRAGONS_URL, FEY_URL,
                       HUMANOIDS_URL, MAGICAL_BEASTS_URL, MONSTROUS_HUMANOIDS_URL, OOZES_URL,
-                      OUTSIDERS_URL, PLANTS_URL, UNDEAD_URL, VERMIN_URL]
+                      OUTSIDERS_URL, PLANTS_URL, UNDEAD_URL, VERMIN_URL, NPC_URL]
 
 abberations = []
 animals = []
@@ -36,10 +39,13 @@ outsiders = []
 plants = []
 undead = []
 vermin = []
+npcs = []
+
 
 monster_type_lists = [abberations, animals, constructs, dragons, fey, humanoids,
                        magical_beasts, monstrous_humanoids, oozes, outsiders,
-                       plants, undead, vermin]
+                       plants, undead, vermin, npcs]
+
 
 
 #  Get all monster pages individually by type
@@ -61,17 +67,33 @@ for index, type_url in enumerate(monster_type_urls):
             "url": href,
             "type": type_url.split("/")[-2]  # Extract type from URL    
         })
+        elif href.__contains__("/bestiary/npc-s/"):
+            npcs.append({
+            "name": text,
+            "url": href,
+            "type": "npc"  
+        })
 
 
-for monster_type_list in monster_type_lists: #O(1) 13 times
+
+
+for monster_type_list in monster_type_lists: #O(1) 14 times
 
     for monster in monster_type_list:
 
         print("Scraping monster:", monster["name"], "from", monster["url"])
 
-        response = requests.get(monster["url"])
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "lxml")
+
+        for _ in range(3):  # Retry up to 3 times if an error occurs
+            try:
+                response = requests.get( monster["url"])
+                response.raise_for_status()
+                soup = BeautifulSoup(response.text, "lxml")
+                break  # Break out of the retry loop if successful
+            except requests.exceptions.RequestException as e:
+                print("Error fetching monster page:", e)
+                continue
+        
 
         # Extract CR from the monster page
         cr = None
@@ -114,7 +136,7 @@ print("Outsiders found:", len(outsiders))
 print("Plants found:", len(plants))
 print("Undead found:", len(undead))
 print("Vermin found:", len(vermin))
-
+print("NPCs found:", len(npcs))
 
 # Save results to CSV
 with open("pathfinder_monsters_raw.csv", "w", newline='', encoding='utf-8') as csvfile:
@@ -127,3 +149,7 @@ with open("pathfinder_monsters_raw.csv", "w", newline='', encoding='utf-8') as c
             writer.writerow(monster)
 
 print("\nData saved to pathfinder_monsters_raw.csv")
+
+end_time = time.perf_counter()
+
+print(f"Total time taken: {(end_time - start_time) / 60:.2f} minutes")
