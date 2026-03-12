@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import time
 import gspread
+
 from google.oauth2.service_account import Credentials
 from gspread_dataframe import set_with_dataframe
 
@@ -49,9 +50,8 @@ read_data['cr'] = read_data['cr'].astype(float)
 # sort by type and sort by cr
 read_data = read_data.sort_values(by=['type', 'cr'])
 
-#print(read_data['cr'].unique())
 
-# possibly not needed because spreadsheet software can handle decimal cr values
+
 read_data['cr'] = read_data['cr'].replace(
     {
         0.5: '1/2',

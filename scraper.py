@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import time
 import csv
+import concurrent.futures
 
 start_time = time.perf_counter()
 
@@ -77,48 +78,57 @@ for index, type_url in enumerate(monster_type_urls):
 
 
 
-for monster_type_list in monster_type_lists: #O(1) 14 times
+#for monster_type_list in monster_type_lists: #O(1) 14 times
 
-    for monster in monster_type_list:
+    #for monster in monster_type_list:
+def fetch_monster_data(monster):
+    print("Scraping monster:", monster["name"], "from", monster["url"])
 
-        print("Scraping monster:", monster["name"], "from", monster["url"])
 
+    for _ in range(3):  # Retry up to 3 times if an error occurs
+        try:
+            response = requests.get( monster["url"])
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "lxml")
+            break  # Break out of the retry loop if successful
+        except requests.exceptions.RequestException as e:
+            print("Error fetching monster page:", e)
+            continue
+    
 
-        for _ in range(3):  # Retry up to 3 times if an error occurs
-            try:
-                response = requests.get( monster["url"])
-                response.raise_for_status()
-                soup = BeautifulSoup(response.text, "lxml")
-                break  # Break out of the retry loop if successful
-            except requests.exceptions.RequestException as e:
-                print("Error fetching monster page:", e)
-                continue
+    # Extract CR from the monster page
+    cr = None
+
+    for tag in soup.find_all(["b", "strong", "p", "h1" ,"span",'title', "th" ,"td"]):
+
+        txt = tag.get_text().strip()
         
+        if txt.startswith("CR "): 
+            cr = txt.replace("CR", "")[:4].strip() # fix for mythic levels etc.  
+            break
 
-        # Extract CR from the monster page
-        cr = None
-
-        for tag in soup.find_all(["b", "strong", "p", "h1" ,"span",'title', "th" ,"td"]):
-
-            txt = tag.get_text().strip()
-           
-            if txt.startswith("CR "): 
-                cr = txt.replace("CR", "")[:4].strip() # fix for mythic levels etc.  
-                break
-
-            elif "CR" in txt:
-                parts = txt.split("CR")
-                
-                cr_part = parts[1].strip()
-                cr = cr_part[:4].strip()  # Take up to 4 characters after "CR"
-                break
-
-        if not cr:
+        elif "CR" in txt:
+            parts = txt.split("CR")
             
-            cr = "UNKNOWN" 
+            cr_part = parts[1].strip()
+            cr = cr_part[:4].strip()  # Take up to 4 characters after "CR"
+            break
 
-        monster["cr"] = cr
+    if not cr:
         
+        cr = "UNKNOWN" 
+
+    monster["cr"] = cr
+        
+
+# Flatten the list of all monsters
+all_monsters = [monster for monster_list in monster_type_lists for monster in monster_list]
+
+print(f"Total monsters found to scrape CRs for: {len(all_monsters)}")
+
+# Use ThreadPoolExecutor for concurrent scraping
+with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
+    list(executor.map(fetch_monster_data, all_monsters))
 
 # Print summary of results
 print("\nDONE. Summary of monsters scraped:")
@@ -137,6 +147,9 @@ print("Plants found:", len(plants))
 print("Undead found:", len(undead))
 print("Vermin found:", len(vermin))
 print("NPCs found:", len(npcs))
+
+
+
 
 # Save results to CSV
 with open("pathfinder_monsters_raw.csv", "w", newline='', encoding='utf-8') as csvfile:
